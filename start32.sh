@@ -19,7 +19,7 @@ PROOT_BIN="$INSTALL_DIR/proot"
 ROOTFS_DIR="$INSTALL_DIR/rootfs32"
 
 GE_URL="https://github.com/GloriousEggroll/wine-ge-custom/releases/download/GE-Proton8-26/wine-lutris-GE-Proton8-26-x86_64.tar.xz"
-PROOT_URL="https://github.com/proot-me/proot/releases/download/v5.4.0/proot-v5.4.0-x86_64-static"
+PROOT_URL="https://proot.gitlab.io/proot/bin/proot"
 ROOTFS_URL="https://github.com/multiarch/qemu-user-static/releases/download/v7.2.0-1/x86_rootfs.tar.gz"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -156,8 +156,8 @@ instalar_rootfs() {
     if [ ! -d "$ROOTFS_DIR/lib" ]; then
         local ROOTFS_TAR="$INSTALL_DIR/rootfs32.tar.gz"
 
-        # tenta Debian i386 slim do Docker Hub (via github mirror)
-        local DEBIAN_URL="https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-i386/bookworm/slim/rootfs.tar.xz"
+        # tenta Debian bookworm i386 oficial via debuerreotype
+        local DEBIAN_URL="https://github.com/gabrieldeisrael/Wine67/releases/download/v1.0/rootfs_i386_wine.tar.xz"
         local FALLBACK_URL="https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86/alpine-minirootfs-3.19.1-x86.tar.gz"
 
         info "Baixando rootfs Debian i386..."
