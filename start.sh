@@ -19,7 +19,7 @@ PROOT_BIN="$INSTALL_DIR/proot"
 
 GE_URL="https://github.com/GloriousEggroll/wine-ge-custom/releases/download/GE-Proton8-26/wine-lutris-GE-Proton8-26-x86_64.tar.xz"
 PROOT_URL="https://proot.gitlab.io/proot/bin/proot"
-ROOTFS_URL="https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86/alpine-minirootfs-3.23.0-x86.tar.gz"
+ROOTFS_URL="https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-amd64-root.tar.gz"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
@@ -111,14 +111,34 @@ instalar_proot() {
 
 # instala rootfs com libs 32-bit
 instalar_rootfs() {
-    if [ ! -d "$ROOTFS_DIR/lib" ]; then
+    if [ ! -d "$ROOTFS_DIR/usr/bin" ]; then
         local ROOTFS_TAR="$INSTALL_DIR/rootfs.tar.gz"
-        baixar "$ROOTFS_URL" "$ROOTFS_TAR" "rootfs Ubuntu 20.04"
+        local UBUNTU_URL="https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-amd64-root.tar.gz"
+        local ALPINE_URL="https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-minirootfs-3.23.0-x86_64.tar.gz"
+
+        info "Tentando rootfs Ubuntu 20.04 x86_64..."
+        if command -v wget &>/dev/null; then
+            wget -q -O "$ROOTFS_TAR" "$UBUNTU_URL" &
+        else
+            curl -L -s -o "$ROOTFS_TAR" "$UBUNTU_URL" &
+        fi
+        local dl_pid=$!
+        spinner "$dl_pid" "Baixando rootfs Ubuntu 20.04..."
+        wait "$dl_pid"
+        local dl_exit=$?
+
+        if [ $dl_exit -ne 0 ] || [ ! -s "$ROOTFS_TAR" ] || \
+           (command -v file &>/dev/null && file "$ROOTFS_TAR" 2>/dev/null | grep -qi "HTML\|ASCII text"); then
+            aviso "Ubuntu falhou. Tentando Alpine x86_64..."
+            rm -f "$ROOTFS_TAR"
+            baixar "$ALPINE_URL" "$ROOTFS_TAR" "Alpine Linux x86_64"
+        fi
+
         mkdir -p "$ROOTFS_DIR"
         tar -xzf "$ROOTFS_TAR" -C "$ROOTFS_DIR" 2>/dev/null &
         local tar_pid=$!
         spinner "$tar_pid" "Extraindo rootfs..."
-        wait "$tar_pid" || erro "Falha ao extrair rootfs"
+        wait "$tar_pid" || erro "Falha ao extrair rootfs. Delete '$ROOTFS_DIR' e tente novamente."
         rm -f "$ROOTFS_TAR"
         ok "rootfs instalado!"
     else
