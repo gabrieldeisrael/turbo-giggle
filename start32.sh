@@ -271,7 +271,7 @@ mkdir -p "$WINEPREFIX_DIR"
 
 export WINEPREFIX="$WINEPREFIX_DIR"
 export WINESERVER="/usr/lib/wine/wineserver32"
-export LD_LIBRARY_PATH="$INSTALL_DIR/lib:$INSTALL_DIR/lib64"
+export LD_LIBRARY_PATH="/opt/wine/lib:/opt/wine/lib64"
 
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
