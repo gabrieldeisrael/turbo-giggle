@@ -269,6 +269,10 @@ echo ""
 # executa wine 32-bit dentro do proot com rootfs i386
 mkdir -p "$WINEPREFIX_DIR"
 
+export WINEPREFIX="$WINEPREFIX_DIR"
+export WINESERVER="/usr/lib/wine/wineserver32"
+export LD_LIBRARY_PATH="$INSTALL_DIR/lib:$INSTALL_DIR/lib64"
+
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -b /tmp \
@@ -283,7 +287,7 @@ mkdir -p "$WINEPREFIX_DIR"
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
     -b "$HOME:$HOME" \
     -w "/" \
-    /bin/sh -c "WINEPREFIX=\'$WINEPREFIX_DIR\' WINESERVER=/usr/lib/wine/wineserver32 DISPLAY=\'$DISPLAY\' LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /opt/wine/bin/wine \'$SELECTED\' 2>&1"
+    /opt/wine/bin/wine "$SELECTED"
 
 EXIT=$?
 echo ""
