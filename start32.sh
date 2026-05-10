@@ -273,7 +273,7 @@ mkdir -p "$WINE_SOCK_DIR"
 # executa wine 32-bit dentro do proot com rootfs i386
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
-    -b /tmp \ 
+    -b /tmp \
     -b /dev \
     -b /proc \
     -b /sys \
