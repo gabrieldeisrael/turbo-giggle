@@ -292,7 +292,7 @@ export WINESERVER="/usr/lib/wine/wineserver32"
 export WINEDLLPATH="/opt/wine/lib/wine:/opt/wine/lib64/wine"
 export WINEPRELOADRESERVE=""
 mkdir -p "$WINE_SOCK_DIR"
-/opt/wine/bin/wineserver -f &
+/usr/lib/wine/wineserver32 -f &
 sleep 1
 exec /opt/wine/bin/wine "$SELECTED"
 WINESCRIPT_EOF
