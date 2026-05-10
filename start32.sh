@@ -269,8 +269,13 @@ echo ""
 # executa wine 32-bit dentro do proot com rootfs i386
 mkdir -p "$WINEPREFIX_DIR"
 
-CMD="WINEPREFIX=$WINEPREFIX_DIR LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /usr/lib/wine/wineserver32 & sleep 2 && WINEPREFIX=$WINEPREFIX_DIR WINESERVER=/usr/lib/wine/wineserver32 LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /opt/wine/bin/wine $SELECTED 2>&1"
-info "CMD: $CMD"
+# limpa wineservers antigos que podem conflitar
+pkill -9 wineserver 2>/dev/null
+pkill -9 wineserver32 2>/dev/null
+rm -rf /tmp/wine-* /tmp/.wine-$(id -u)
+sleep 1
+
+CMD="WINEPREFIX=$WINEPREFIX_DIR LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /usr/lib/wine/wineserver32 & sleep 3 && WINEPREFIX=$WINEPREFIX_DIR WINESERVER=/usr/lib/wine/wineserver32 LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /opt/wine/bin/wine $SELECTED 2>&1"
 
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
