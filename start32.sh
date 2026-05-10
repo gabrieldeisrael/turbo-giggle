@@ -266,39 +266,9 @@ echo ""
 echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
 echo ""
 
-# cria diretório de socket do wineserver no host e mapeia dentro do proot
-WINE_SOCK_DIR="/tmp/.wine-$(id -u)"
-mkdir -p "$WINE_SOCK_DIR"
-
-# gera script temporário para rodar dentro do proot
-PROOT_SCRIPT=$(mktemp /tmp/wine32run.XXXXXX.sh)
-cat > "$PROOT_SCRIPT" << 'WINESCRIPT_EOF'
-#!/bin/sh
-WINESCRIPT_EOF
-
-# adiciona variáveis expandidas pelo host
-cat >> "$PROOT_SCRIPT" << WINESCRIPT
-export WINEPREFIX="$WINEPREFIX_DIR"
-export DISPLAY="$DISPLAY"
-export WINE_SOCK_DIR="$WINE_SOCK_DIR"
-export SELECTED="$SELECTED"
-WINESCRIPT
-
-# adiciona o resto sem expansão
-cat >> "$PROOT_SCRIPT" << 'WINESCRIPT_EOF'
-export LD_LIBRARY_PATH="/opt/wine/lib:/opt/wine/lib64"
-export WINELOADER="/opt/wine/bin/wine"
-export WINESERVER="/usr/lib/wine/wineserver32"
-export WINEDLLPATH="/opt/wine/lib/wine:/opt/wine/lib64/wine"
-export WINEPRELOADRESERVE=""
-mkdir -p "$WINE_SOCK_DIR"
-/usr/lib/wine/wineserver32 -f &
-sleep 1
-exec /opt/wine/bin/wine "$SELECTED"
-WINESCRIPT_EOF
-chmod +x "$PROOT_SCRIPT"
-
 # executa wine 32-bit dentro do proot com rootfs i386
+mkdir -p "$WINEPREFIX_DIR"
+
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -b /tmp \
@@ -312,11 +282,8 @@ chmod +x "$PROOT_SCRIPT"
     -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
     -b "$HOME:$HOME" \
-    -b "$WINE_SOCK_DIR:$WINE_SOCK_DIR" \
     -w "/" \
-    /bin/sh "$PROOT_SCRIPT"
-
-rm -f "$PROOT_SCRIPT"
+    /bin/sh -c "WINEPREFIX=\'$WINEPREFIX_DIR\' WINESERVER=/usr/lib/wine/wineserver32 DISPLAY=\'$DISPLAY\' LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /opt/wine/bin/wine \'$SELECTED\' 2>&1"
 
 EXIT=$?
 echo ""
