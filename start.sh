@@ -18,7 +18,7 @@ ROOTFS_DIR="$INSTALL_DIR/rootfs"
 PROOT_BIN="$INSTALL_DIR/proot"
 
 GE_URL="https://github.com/GloriousEggroll/wine-ge-custom/releases/download/GE-Proton8-26/wine-lutris-GE-Proton8-26-x86_64.tar.xz"
-PROOT_URL="https://proot.gitlab.io/proot/bin/proot"
+PROOT_URL=""  # definido dinamicamente por arquitetura
 ROOTFS_URL="https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-amd64-root.tar.gz"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -100,7 +100,21 @@ buscar_tar() {
 # instala proot
 instalar_proot() {
     if [ ! -f "$PROOT_BIN" ]; then
-        baixar "$PROOT_URL" "$PROOT_BIN" "proot"
+        local ARCH
+        ARCH=$(uname -m)
+        local URL
+        case "$ARCH" in
+            x86_64)
+                URL="https://github.com/proot-me/proot/releases/download/v5.4.0/proot-v5.4.0-x86_64-static" ;;
+            aarch64|arm64)
+                URL="https://github.com/proot-me/proot/releases/download/v5.4.0/proot-v5.4.0-aarch64-static" ;;
+            armv7l|armv8l)
+                URL="https://proot.gitlab.io/proot/bin/proot" ;;
+            *)
+                erro "Arquitetura não suportada para proot: $ARCH" ;;
+        esac
+        info "Arquitetura detectada: $ARCH"
+        baixar "$URL" "$PROOT_BIN" "proot ($ARCH)"
         chmod +x "$PROOT_BIN"
         ok "proot instalado!"
     else
@@ -214,6 +228,14 @@ if [ ! -f "$INSTALL_DIR/bin/wine" ] && [ ! -f "$INSTALL_DIR/bin/wine64" ]; then
     instalar_wine
 fi
 
+# apaga proot antigo se não for x86_64
+if [ -f "$PROOT_BIN" ]; then
+    PROOT_ARCH=$(file "$PROOT_BIN" 2>/dev/null || true)
+    if echo "$PROOT_ARCH" | grep -qi "ARM\|aarch"; then
+        aviso "proot ARM detectado numa máquina x86_64 — removendo para reinstalar..."
+        rm -f "$PROOT_BIN"
+    fi
+fi
 instalar_proot
 
 if wine_precisa_proot; then
