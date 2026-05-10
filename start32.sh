@@ -272,10 +272,20 @@ mkdir -p "$WINE_SOCK_DIR"
 
 # gera script temporário para rodar dentro do proot
 PROOT_SCRIPT=$(mktemp /tmp/wine32run.XXXXXX.sh)
-cat > "$PROOT_SCRIPT" << WINESCRIPT
+cat > "$PROOT_SCRIPT" << 'WINESCRIPT_EOF'
 #!/bin/sh
+WINESCRIPT_EOF
+
+# adiciona variáveis expandidas pelo host
+cat >> "$PROOT_SCRIPT" << WINESCRIPT
 export WINEPREFIX="$WINEPREFIX_DIR"
 export DISPLAY="$DISPLAY"
+export WINE_SOCK_DIR="$WINE_SOCK_DIR"
+export SELECTED="$SELECTED"
+WINESCRIPT
+
+# adiciona o resto sem expansão
+cat >> "$PROOT_SCRIPT" << 'WINESCRIPT_EOF'
 export LD_LIBRARY_PATH="/opt/wine/lib:/opt/wine/lib64"
 export WINELOADER="/opt/wine/bin/wine"
 export WINESERVER="/opt/wine/bin/wineserver"
@@ -283,7 +293,7 @@ export WINEDLLPATH="/opt/wine/lib/wine:/opt/wine/lib64/wine"
 export WINEPRELOADRESERVE=""
 mkdir -p "$WINE_SOCK_DIR"
 exec /opt/wine/bin/wine "$SELECTED"
-WINESCRIPT
+WINESCRIPT_EOF
 chmod +x "$PROOT_SCRIPT"
 
 # executa wine 32-bit dentro do proot com rootfs i386
