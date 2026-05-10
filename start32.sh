@@ -266,19 +266,25 @@ echo ""
 echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
 echo ""
 
+# cria diretório de socket do wineserver no host e mapeia dentro do proot
+WINE_SOCK_DIR="/tmp/.wine-$(id -u)"
+mkdir -p "$WINE_SOCK_DIR"
+
 # executa wine 32-bit dentro do proot com rootfs i386
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
-    -b /tmp \
+    -b /tmp \ 
     -b /dev \
     -b /proc \
     -b /sys \
     -b "$INSTALL_DIR/bin:/opt/wine/bin" \
     -b "$INSTALL_DIR/lib:/opt/wine/lib" \
     -b "$INSTALL_DIR/lib64:/opt/wine/lib64" \
+    -b "$INSTALL_DIR/share:/opt/wine/share" \
     -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
     -b "$HOME:$HOME" \
+    -b "$WINE_SOCK_DIR:$WINE_SOCK_DIR" \
     -w "/" \
     /bin/sh -c "
         export WINEPREFIX='$WINEPREFIX_DIR'
@@ -287,6 +293,8 @@ echo ""
         export WINELOADER='/opt/wine/bin/wine'
         export WINESERVER='/opt/wine/bin/wineserver'
         export WINEDLLPATH='/opt/wine/lib/wine:/opt/wine/lib64/wine'
+        export WINEPRELOADRESERVE=''
+        mkdir -p '$WINE_SOCK_DIR'
         exec /opt/wine/bin/wine '$SELECTED'
     "
 
