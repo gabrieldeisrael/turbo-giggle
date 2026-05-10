@@ -274,13 +274,17 @@ if wine_precisa_proot && [ -f "$PROOT_BIN" ] && [ -d "$ROOTFS_DIR" ]; then
         -b /dev \
         -b /proc \
         -b /sys \
-        -b "$INSTALL_DIR:$INSTALL_DIR" \
+        -b "$INSTALL_DIR/bin:/opt/wine/bin" \
+        -b "$INSTALL_DIR/lib:/opt/wine/lib" \
+        -b "$INSTALL_DIR/lib64:/opt/wine/lib64" \
         -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
         -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
         -b "$HOME:$HOME" \
         -w "$HOME" \
         env WINEPREFIX="$WINEPREFIX_DIR" DISPLAY="$DISPLAY" \
-        "$WINE_BIN" "$SELECTED"
+            PATH="/opt/wine/bin:$PATH" \
+            LD_LIBRARY_PATH="/opt/wine/lib:/opt/wine/lib64" \
+        /opt/wine/bin/wine "$SELECTED"
 else
     "$WINE_BIN" "$SELECTED"
 fi
