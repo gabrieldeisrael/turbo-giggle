@@ -286,8 +286,20 @@ echo ""
 echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
 echo ""
 
-if wine_precisa_proot && [ -f "$PROOT_BIN" ] && [ -d "$ROOTFS_DIR" ]; then
+PRECISA_PROOT=0
+wine_precisa_proot && PRECISA_PROOT=1
+
+info "Wine bin   : $WINE_BIN"
+info "Proot      : $([ -f "$PROOT_BIN" ] && echo 'sim' || echo 'nao')"
+info "Rootfs     : $([ -d "$ROOTFS_DIR" ] && echo 'sim' || echo 'nao')"
+info "Usa proot  : $([ $PRECISA_PROOT -eq 1 ] && echo 'sim' || echo 'nao')"
+
+if [ $PRECISA_PROOT -eq 1 ] && [ -f "$PROOT_BIN" ] && [ -d "$ROOTFS_DIR" ]; then
     info "Usando proot para Wine 32-bit..."
+    # garante que os pontos de montagem existem no rootfs
+    mkdir -p "$ROOTFS_DIR/opt/wine/bin"
+    mkdir -p "$ROOTFS_DIR/opt/wine/lib"
+    mkdir -p "$ROOTFS_DIR/opt/wine/lib64"
     "$PROOT_BIN" \
         -r "$ROOTFS_DIR" \
         -b /tmp \
