@@ -185,7 +185,7 @@ instalar_rootfs() {
         local ROOTFS_FLAG="-xzf"
         command -v file &>/dev/null && file "$ROOTFS_TAR" 2>/dev/null | grep -qi "XZ" && ROOTFS_FLAG="-xJf"
 
-        tar "$ROOTFS_FLAG" "$ROOTFS_TAR" -C "$ROOTFS_DIR" 2>/dev/null &
+        tar "$ROOTFS_FLAG" "$ROOTFS_TAR" -C "$ROOTFS_DIR" --strip-components=1 2>/dev/null &
         local tar_pid=$!
         spinner "$tar_pid" "Extraindo rootfs..."
         wait "$tar_pid" || erro "Falha ao extrair rootfs. Delete '$ROOTFS_DIR' e tente novamente."
