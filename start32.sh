@@ -298,6 +298,7 @@ chmod +x "$PROOT_SCRIPT"
 
 # executa wine 32-bit dentro do proot com rootfs i386
 "$PROOT_BIN" \
+    -0 \
     -r "$ROOTFS_DIR" \
     -b /tmp \
     -b /dev \
