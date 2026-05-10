@@ -292,6 +292,8 @@ export WINESERVER="/opt/wine/bin/wineserver"
 export WINEDLLPATH="/opt/wine/lib/wine:/opt/wine/lib64/wine"
 export WINEPRELOADRESERVE=""
 mkdir -p "$WINE_SOCK_DIR"
+/opt/wine/bin/wineserver -f &
+sleep 1
 exec /opt/wine/bin/wine "$SELECTED"
 WINESCRIPT_EOF
 chmod +x "$PROOT_SCRIPT"
