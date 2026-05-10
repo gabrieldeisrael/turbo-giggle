@@ -127,7 +127,7 @@ instalar_proot() {
 instalar_rootfs() {
     if [ ! -d "$ROOTFS_DIR/usr/bin" ]; then
         local ROOTFS_TAR="$INSTALL_DIR/rootfs.tar.gz"
-        local UBUNTU_URL="https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-amd64-root.tar.gz"
+        local UBUNTU_URL="https://partner-images.canonical.com/core/noble/current/ubuntu-noble-core-cloudimg-amd64-root.tar.gz"
         local ALPINE_URL="https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-minirootfs-3.23.0-x86_64.tar.gz"
 
         info "Tentando rootfs Ubuntu 20.04 x86_64..."
@@ -320,6 +320,7 @@ if [ $PRECISA_PROOT -eq 1 ] && [ -f "$PROOT_BIN" ] && [ -d "$ROOTFS_DIR" ]; then
     info "Usando proot para Wine 32-bit..."
     # garante que os pontos de montagem existem no rootfs
     mkdir -p "$ROOTFS_DIR/opt/wine/bin"
+    mkdir -p "$ROOTFS_DIR$HOME"
     mkdir -p "$ROOTFS_DIR/opt/wine/lib"
     mkdir -p "$ROOTFS_DIR/opt/wine/lib64"
     "$PROOT_BIN" \
@@ -334,7 +335,7 @@ if [ $PRECISA_PROOT -eq 1 ] && [ -f "$PROOT_BIN" ] && [ -d "$ROOTFS_DIR" ]; then
         -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
         -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
         -b "$HOME:$HOME" \
-        -w "$HOME" \
+        -w "/" \
         env WINEPREFIX="$WINEPREFIX_DIR" DISPLAY="$DISPLAY" \
             PATH="/opt/wine/bin:$PATH" \
             LD_LIBRARY_PATH="/opt/wine/lib:/opt/wine/lib64" \
