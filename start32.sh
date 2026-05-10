@@ -288,7 +288,7 @@ WINESCRIPT
 cat >> "$PROOT_SCRIPT" << 'WINESCRIPT_EOF'
 export LD_LIBRARY_PATH="/opt/wine/lib:/opt/wine/lib64"
 export WINELOADER="/opt/wine/bin/wine"
-export WINESERVER="/opt/wine/bin/wineserver"
+export WINESERVER="/usr/lib/wine/wineserver32"
 export WINEDLLPATH="/opt/wine/lib/wine:/opt/wine/lib64/wine"
 export WINEPRELOADRESERVE=""
 mkdir -p "$WINE_SOCK_DIR"
@@ -300,7 +300,6 @@ chmod +x "$PROOT_SCRIPT"
 
 # executa wine 32-bit dentro do proot com rootfs i386
 "$PROOT_BIN" \
-    -0 \
     -r "$ROOTFS_DIR" \
     -b /tmp \
     -b /dev \
