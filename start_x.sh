@@ -2,17 +2,18 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Passo 1: sem Desktop — usa cache oculto
+# ─── Diretórios ────────────────────────────────────────────────────────────────
 INSTALL_DIR="$HOME/.cache/wine67"
-WINEPREFIX_DIR="$INSTALL_DIR/prefix32"
 WINE_BIN="$INSTALL_DIR/bin/wine"
 PROOT_BIN="$INSTALL_DIR/proot"
 ROOTFS_DIR="$INSTALL_DIR/rootfs32"
 
-WINE_URL="https://github.com/Kron4ek/Wine-Builds/releases/download/11.8/wine-11.8-amd64-wow64.tar.xz"
+# ─── URLs ──────────────────────────────────────────────────────────────────────
+# FIX PRINCIPAL: Wine x86 (32-bit nativo) — não amd64-wow64
+WINE_URL="https://github.com/Kron4ek/Wine-Builds/releases/download/11.8/wine-11.8-x86.tar.xz"
 PROOT_URL="https://proot.gitlab.io/proot/bin/proot"
-# Passo 6: ROOTFS_URL removido (não era usado)
 
+# ─── Cores ─────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
 MAGENTA='\033[0;35m'
@@ -50,11 +51,27 @@ echo -e "  ${DIM}Wine-Kron4ek Portable Launcher 32-bit — sem sudo${RESET}"
 echo -e "  ${DIM}Base: $INSTALL_DIR${RESET}"
 echo ""
 
+# ─── Modo de extração ──────────────────────────────────────────────────────────
+echo -e "  ${BOLD}Modo de extração:${RESET}"
+echo ""
+echo -e "  ${YELLOW}[1]${RESET} Bruto  ${DIM}(Computadores Físicos — rápido)${RESET}"
+echo -e "  ${YELLOW}[2]${RESET} Leve   ${DIM}(Máquinas Virtuais — mais estável)${RESET}"
+echo ""
+echo -ne "${CYAN}Escolha [1/2]: ${RESET}"
+read -r MODO_EXTRACAO
+case "$MODO_EXTRACAO" in
+    2) NICE_CMD="nice -n 19" ; aviso "Modo Leve ativado — extração mais lenta, VM não trava." ;;
+    *) NICE_CMD=""           ; ok    "Modo Bruto ativado." ;;
+esac
+echo ""
+
+# ─── Dependências básicas ──────────────────────────────────────────────────────
 command -v wget &>/dev/null || command -v curl &>/dev/null || erro "Instale wget ou curl"
 command -v tar  &>/dev/null || erro "tar não encontrado"
 
 mkdir -p "$INSTALL_DIR"
 
+# ─── Funções de download ───────────────────────────────────────────────────────
 baixar() {
     local url="$1" dest="$2" nome="$3"
     if command -v wget &>/dev/null; then
@@ -72,7 +89,9 @@ baixar() {
 
 buscar_tar() {
     local resultado=""
-    for padrao in "wine-11.8-amd64-wow64.tar.xz" "wine-*.tar.xz" "wine-*.tar.gz" "wine-*.tar"; do
+    # Procura primeiro pelo nome exato x86, depois genérico
+    for padrao in "wine-11.8-x86.tar.xz" "wine-11.8-staging-x86.tar.xz" \
+                  "wine-*-x86.tar.xz" "wine-*.tar.xz" "wine-*.tar.gz" "wine-*.tar"; do
         resultado=$(find "$SCRIPT_DIR" -maxdepth 3 -name "$padrao" 2>/dev/null | head -1)
         [ -n "$resultado" ] && echo "$resultado" && return
         resultado=$(find /media /run/media /mnt -maxdepth 5 -name "$padrao" 2>/dev/null | head -1)
@@ -80,8 +99,9 @@ buscar_tar() {
     done
 }
 
+# ─── Instalação do Wine ────────────────────────────────────────────────────────
 instalar_wine() {
-    info "Instalando Wine Kron4ek..."
+    info "Instalando Wine Kron4ek x86 (32-bit)..."
     mkdir -p "$INSTALL_DIR"
 
     local GE_TAR
@@ -89,9 +109,16 @@ instalar_wine() {
 
     if [ -n "$GE_TAR" ]; then
         ok "Arquivo encontrado: $GE_TAR"
-    else
+        # Avisa se encontrou um build 64-bit por engano
+        if echo "$GE_TAR" | grep -qi "amd64\|wow64"; then
+            aviso "AVISO: arquivo encontrado é 64-bit — ignorando, baixando x86..."
+            GE_TAR=""
+        fi
+    fi
+
+    if [ -z "$GE_TAR" ]; then
         GE_TAR="$INSTALL_DIR/wine-kron4ek.tar.xz"
-        baixar "$WINE_URL" "$GE_TAR" "Wine-Kron4ek"
+        baixar "$WINE_URL" "$GE_TAR" "Wine-Kron4ek x86"
     fi
 
     local TAR_FLAG TEST_FLAG
@@ -116,15 +143,16 @@ instalar_wine() {
     tar "$TEST_FLAG" "$GE_TAR" &>/dev/null || erro "Arquivo corrompido."
     ok "Arquivo íntegro."
 
-    tar "$TAR_FLAG" "$GE_TAR" -C "$INSTALL_DIR" --strip-components=1 &
+    $NICE_CMD tar "$TAR_FLAG" "$GE_TAR" -C "$INSTALL_DIR" --strip-components=1 &
     local tar_pid=$!
     spinner "$tar_pid" "Extraindo Wine (pode demorar)..."
     wait "$tar_pid" || erro "Falha ao extrair. Delete '$INSTALL_DIR' e tente novamente."
 
     find "$INSTALL_DIR/bin" -type f -exec chmod +x {} \; 2>/dev/null
-    ok "Wine instalado!"
+    ok "Wine x86 instalado!"
 }
 
+# ─── Instalação do proot ───────────────────────────────────────────────────────
 instalar_proot() {
     if [ ! -f "$PROOT_BIN" ]; then
         baixar "$PROOT_URL" "$PROOT_BIN" "proot"
@@ -135,6 +163,7 @@ instalar_proot() {
     fi
 }
 
+# ─── Instalação do rootfs i386 ─────────────────────────────────────────────────
 instalar_rootfs() {
     if [ ! -d "$ROOTFS_DIR/lib" ]; then
         local ROOTFS_TAR="$INSTALL_DIR/rootfs32.tar.gz"
@@ -165,14 +194,12 @@ instalar_rootfs() {
         local ROOTFS_FLAG="-xzf"
         command -v file &>/dev/null && file "$ROOTFS_TAR" 2>/dev/null | grep -qi "XZ" && ROOTFS_FLAG="-xJf"
 
-        tar "$ROOTFS_FLAG" "$ROOTFS_TAR" -C "$ROOTFS_DIR" --strip-components=1 2>/dev/null &
+        $NICE_CMD tar "$ROOTFS_FLAG" "$ROOTFS_TAR" -C "$ROOTFS_DIR" --strip-components=1 2>/dev/null &
         local tar_pid=$!
         spinner "$tar_pid" "Extraindo rootfs..."
         wait "$tar_pid"
-        TAR_EXIT=$?
-        if [ $TAR_EXIT -ne 0 ]; then
-            aviso "Extração retornou código $TAR_EXIT (ignorando, verificando arquivos...)"
-        fi
+        local TAR_EXIT=$?
+        [ $TAR_EXIT -ne 0 ] && aviso "Extração retornou código $TAR_EXIT (verificando arquivos...)"
         [ -f "$ROOTFS_DIR/bin/sh" ] || erro "Rootfs incompleto. Delete '$ROOTFS_DIR' e tente novamente."
         rm -f "$ROOTFS_TAR"
         ok "rootfs instalado!"
@@ -181,8 +208,28 @@ instalar_rootfs() {
     fi
 }
 
+# ─── Verificação de arquitetura ────────────────────────────────────────────────
+verificar_arquitetura() {
+    if [ -f "$WINE_BIN" ]; then
+        # Detecta se o Wine instalado é x86 ou amd64
+        local WINE_ARCH
+        WINE_ARCH=$(file "$WINE_BIN" 2>/dev/null || true)
+        if echo "$WINE_ARCH" | grep -qi "x86-64\|amd64\|ELF 64"; then
+            aviso "Wine instalado é 64-bit — incompatível com rootfs i386!"
+            aviso "Removendo instalação antiga e reinstalando versão x86..."
+            rm -rf "$INSTALL_DIR/bin" "$INSTALL_DIR/lib" "$INSTALL_DIR/share"
+            instalar_wine
+        else
+            ok "Wine: arquitetura x86 (32-bit) ✔"
+        fi
+    fi
+}
+
+# ─── Setup principal ───────────────────────────────────────────────────────────
 if [ ! -f "$WINE_BIN" ]; then
     instalar_wine
+else
+    verificar_arquitetura
 fi
 
 instalar_proot
@@ -190,25 +237,20 @@ instalar_rootfs
 
 [ ! -x "$WINE_BIN" ] && chmod +x "$WINE_BIN"
 
-mkdir -p "$ROOTFS_DIR/opt"
-
-# estrutura básica do rootfs
-mkdir -p "$ROOTFS_DIR/root"
-mkdir -p "$ROOTFS_DIR/tmp"
-mkdir -p "$ROOTFS_DIR/dev/shm"
+# Estrutura básica de diretórios
+mkdir -p "$ROOTFS_DIR"/{opt,root,tmp,dev/shm}
 chmod 1777 "$ROOTFS_DIR/tmp"
 
-# home e tmp isolados
 mkdir -p "$INSTALL_DIR/home"
 TMP_DIR="$INSTALL_DIR/tmp"
 mkdir -p "$TMP_DIR"
 
 ok "Wine: $WINE_BIN"
 
-export WINEPREFIX="$WINEPREFIX_DIR"
-mkdir -p "$WINEPREFIX_DIR"
+# X Display padrão
 [ -z "$DISPLAY" ] && export DISPLAY=:0
 
+# ─── Seleção do .exe ───────────────────────────────────────────────────────────
 echo ""
 echo "Procurando jogos..."
 
@@ -224,7 +266,7 @@ if [ ${#EXES[@]} -eq 0 ]; then
     [ -f "$SELECTED" ] || erro "Arquivo não encontrado: '$SELECTED'"
 else
     echo ""
-    echo "Jogos:"
+    echo "Jogos encontrados:"
     echo ""
     for i in "${!EXES[@]}"; do
         echo -e "  ${YELLOW}[$((i+1))]${RESET} $(basename "${EXES[$i]}")"
@@ -250,7 +292,7 @@ fi
 [ -z "$SELECTED" ] && erro "Nenhum arquivo selecionado."
 [ ! -f "$SELECTED" ] && erro "Arquivo não encontrado: '$SELECTED'"
 
-# Passo 3: WINEPREFIX por jogo
+# ─── WINEPREFIX por jogo ───────────────────────────────────────────────────────
 GAME_NAME="$(basename "$SELECTED" .exe | tr -cd '[:alnum:]_-')"
 WINEPREFIX_DIR="$INSTALL_DIR/prefixes/$GAME_NAME"
 export WINEPREFIX="$WINEPREFIX_DIR"
@@ -260,15 +302,17 @@ echo ""
 echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
 echo ""
 
+# ─── Logs ──────────────────────────────────────────────────────────────────────
 mkdir -p "$INSTALL_DIR/logs"
 LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
 info "Log: $LOG_FILE"
 
-# permissões corretas no tmp privado + diretório IPC do Wine
+# ─── Permissões IPC do Wine ────────────────────────────────────────────────────
 chmod 1777 "$TMP_DIR"
 mkdir -p "$TMP_DIR/.wine-$(id -u)"
 chmod 700  "$TMP_DIR/.wine-$(id -u)"
 
+# ─── Lança o jogo via proot ────────────────────────────────────────────────────
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -b "$TMP_DIR:/tmp" \
@@ -288,6 +332,9 @@ chmod 700  "$TMP_DIR/.wine-$(id -u)"
         export WINEPREFIX='$WINEPREFIX_DIR'
         /opt/bin/wine '$SELECTED' &>> '$LOG_FILE'
     "
+
 EXIT=$?
 echo ""
-[ $EXIT -eq 0 ] && ok "Encerrado." || echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
+[ $EXIT -eq 0 ] \
+    && ok "Encerrado normalmente." \
+    || echo -e "${YELLOW}⚠ Código de saída: $EXIT — verifique: $LOG_FILE${RESET}"
