@@ -277,7 +277,7 @@ chmod 700  "$TMP_DIR/.wine-$(id -u)"
     -b /proc \
     -b /sys \
     -b /run \
-    -b "$INSTALL_DIR:$INSTALL_DIR" \
+    -b "$INSTALL_DIR:/opt" \
     -b "$INSTALL_DIR/logs:$INSTALL_DIR/logs" \
     -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
@@ -286,7 +286,7 @@ chmod 700  "$TMP_DIR/.wine-$(id -u)"
         export WINEDEBUG=-all
         export DISPLAY='$DISPLAY'
         export WINEPREFIX='$WINEPREFIX_DIR'
-        '$WINE_BIN' '$SELECTED' &>> '$LOG_FILE'
+        /opt/bin/wine '$SELECTED' &>> '$LOG_FILE'
     "
 EXIT=$?
 echo ""
