@@ -267,10 +267,10 @@ echo ""
     -b "$INSTALL_DIR/home:/root" \
     -w "/" \
     /bin/sh -c "
-        WINEPREFIX=$WINEPREFIX_DIR LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH /usr/lib/wine/wineserver32 &
-        sleep 3
-        WINEPREFIX=$WINEPREFIX_DIR WINESERVER=/usr/lib/wine/wineserver32 LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH /opt/wine/bin/wine '$SELECTED' 2>&1
-        WINEPREFIX=$WINEPREFIX_DIR /usr/lib/wine/wineserver32 -k
+        export WINEPREFIX='$WINEPREFIX_DIR'
+        export WINESERVER='/opt/wine/bin/wineserver'
+        export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64'
+        /opt/wine/bin/wine '$SELECTED'
     "
 
 EXIT=$?
