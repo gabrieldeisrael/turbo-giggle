@@ -262,6 +262,11 @@ mkdir -p "$INSTALL_DIR/logs"
 LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
 info "Log: $LOG_FILE"
 
+# permissões corretas no tmp privado + diretório IPC do Wine
+chmod 1777 "$TMP_DIR"
+mkdir -p "$TMP_DIR/.wine-$(id -u)"
+chmod 700  "$TMP_DIR/.wine-$(id -u)"
+
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -b "$TMP_DIR:/tmp" \
@@ -269,18 +274,24 @@ info "Log: $LOG_FILE"
     -b /dev \
     -b /proc \
     -b /sys \
+    -b /run \
     -b "$INSTALL_DIR/bin:/opt/wine/bin" \
     -b "$INSTALL_DIR/lib:/opt/wine/lib" \
     -b "$INSTALL_DIR/lib64:/opt/wine/lib64" \
     -b "$INSTALL_DIR/share:/opt/wine/share" \
+    -b "$INSTALL_DIR/logs:$INSTALL_DIR/logs" \
     -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
     -b "$INSTALL_DIR/home:/root" \
     -w "/root" \
     /bin/sh -c "
+        export WINEDEBUG=-all
+        export DISPLAY='$DISPLAY'
         export WINEPREFIX='$WINEPREFIX_DIR'
         export WINESERVER='/opt/wine/bin/wineserver'
         export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64:$LD_LIBRARY_PATH'
+        /opt/wine/bin/wineserver -p &
+        sleep 2
         /opt/wine/bin/wine '$SELECTED' &>> '$LOG_FILE'
     "
 
