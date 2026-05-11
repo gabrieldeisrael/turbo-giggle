@@ -223,22 +223,18 @@ mkdir -p "$ROOTFS_DIR/opt/wine/lib64"
 mkdir -p "$ROOTFS_DIR/root"
 mkdir -p "$ROOTFS_DIR/tmp"
 mkdir -p "$ROOTFS_DIR/dev/shm"
-chmod 1777 "$ROOTFS_DIR/tmp" 2>/dev/null || true
 
 mkdir -p "$INSTALL_DIR/home"
 TMP_DIR="$INSTALL_DIR/tmp"
 mkdir -p "$TMP_DIR"
-chmod 1777 "$TMP_DIR" 2>/dev/null || true
 
 # ===================== VERIFICAÇÃO =====================
 echo ""
 echo -e "${BOLD}Verificando arquivos instalados:${RESET}"
 echo ""
-verifica_arquivo "$WINE_BIN" "Wine GE-Proton" || erro "Wine não foi encontrado após instalação"
-verifica_arquivo "$PROOT_BIN" "proot" || erro "proot não foi encontrado após instalação"
-verifica_dir "$ROOTFS_DIR" "rootfs32" || erro "rootfs não foi encontrado após instalação"
-verifica_dir "$INSTALL_DIR/bin" "/opt/wine/bin" || erro "Diretório de binários não existe"
-verifica_dir "$INSTALL_DIR/lib" "/opt/wine/lib" || erro "Diretório de bibliotecas não existe"
+verifica_arquivo "$WINE_BIN" "Wine GE-Proton" || erro "Wine não foi encontrado"
+verifica_arquivo "$PROOT_BIN" "proot" || erro "proot não foi encontrado"
+verifica_dir "$ROOTFS_DIR" "rootfs32" || erro "rootfs não foi encontrado"
 
 echo ""
 ok "✓ Ambiente completamente configurado!"
@@ -304,6 +300,7 @@ LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
 info "Log: $LOG_FILE"
 
 # ===================== EXECUÇÃO DO JOGO =====================
+# FIX: NÃO isolar /tmp - mapear diretamente
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -w "/root" \
@@ -312,6 +309,7 @@ info "Log: $LOG_FILE"
     -b /proc \
     -b /sys \
     -b /run \
+    -b /home \
     -b "$INSTALL_DIR/bin:/opt/wine/bin" \
     -b "$INSTALL_DIR/lib:/opt/wine/lib" \
     -b "$INSTALL_DIR/lib64:/opt/wine/lib64" \
@@ -327,12 +325,11 @@ info "Log: $LOG_FILE"
         export WINESERVER='/opt/wine/bin/wineserver'
         export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH'
         
-        # Iniciar servidor Wine com timeout
-        timeout 5 /opt/wine/bin/wineserver -p 2>/dev/null || true
+        # Dar tempo para preparar ambiente
         sleep 1
         
-        # Executar o jogo
-        /opt/wine/bin/wine '$SELECTED' &>> '$LOG_FILE'
+        # Executar o jogo diretamente (sem wineserver preliminar)
+        exec /opt/wine/bin/wine '$SELECTED' 2>&1 | tee -a '$LOG_FILE'
     "
 
 EXIT=$?
@@ -342,9 +339,4 @@ if [ $EXIT -eq 0 ]; then
 else
     echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
     aviso "Verifique o log: $LOG_FILE"
-    echo ""
-    if [ -f "$LOG_FILE" ]; then
-        echo -e "${DIM}=== Últimas linhas do log ===${RESET}"
-        tail -n 20 "$LOG_FILE" 2>/dev/null | sed 's/^/  /'
-    fi
 fi
