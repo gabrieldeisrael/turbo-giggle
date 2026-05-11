@@ -190,8 +190,16 @@ mkdir -p "$ROOTFS_DIR/opt/wine/bin"
 mkdir -p "$ROOTFS_DIR/opt/wine/lib"
 mkdir -p "$ROOTFS_DIR/opt/wine/lib64"
 
-# Passo 2: home isolado em vez de bind do $HOME inteiro
+# estrutura básica do rootfs
+mkdir -p "$ROOTFS_DIR/root"
+mkdir -p "$ROOTFS_DIR/tmp"
+mkdir -p "$ROOTFS_DIR/dev/shm"
+chmod 1777 "$ROOTFS_DIR/tmp"
+
+# home e tmp isolados
 mkdir -p "$INSTALL_DIR/home"
+TMP_DIR="$INSTALL_DIR/tmp"
+mkdir -p "$TMP_DIR"
 
 ok "Wine: $WINE_BIN"
 
@@ -241,7 +249,7 @@ fi
 [ ! -f "$SELECTED" ] && erro "Arquivo não encontrado: '$SELECTED'"
 
 # Passo 3: WINEPREFIX por jogo
-GAME_NAME="$(basename "$SELECTED" .exe)"
+GAME_NAME="$(basename "$SELECTED" .exe | tr -cd '[:alnum:]_-')"
 WINEPREFIX_DIR="$INSTALL_DIR/prefixes/$GAME_NAME"
 export WINEPREFIX="$WINEPREFIX_DIR"
 mkdir -p "$WINEPREFIX_DIR"
@@ -250,10 +258,13 @@ echo ""
 echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
 echo ""
 
-# Passo 4: matar apenas o wineserver do prefix atual, não globalmente
+mkdir -p "$INSTALL_DIR/logs"
+LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
+info "Log: $LOG_FILE"
+
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
-    -b /tmp \
+    -b "$TMP_DIR:/tmp" \
     -b /tmp/.X11-unix \
     -b /dev \
     -b /proc \
@@ -265,12 +276,12 @@ echo ""
     -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
     -b "$INSTALL_DIR/home:/root" \
-    -w "/" \
+    -w "/root" \
     /bin/sh -c "
         export WINEPREFIX='$WINEPREFIX_DIR'
         export WINESERVER='/opt/wine/bin/wineserver'
-        export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64'
-        /opt/wine/bin/wine '$SELECTED'
+        export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64:$LD_LIBRARY_PATH'
+        /opt/wine/bin/wine '$SELECTED' &>> '$LOG_FILE'
     "
 
 EXIT=$?
