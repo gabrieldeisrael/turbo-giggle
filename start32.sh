@@ -22,6 +22,24 @@ ok()    { echo -e "${GREEN}✔  $1${RESET}"; }
 info()  { echo -e "${CYAN}➜  $1${RESET}"; }
 aviso() { echo -e "${YELLOW}⚠  $1${RESET}"; }
 
+verifica_arquivo() {
+    local arquivo="$1"
+    local descricao="$2"
+    if [ ! -f "$arquivo" ]; then
+        erro "$descricao não encontrado: $arquivo"
+    fi
+    info "$descricao verificado: ✓"
+}
+
+verifica_dir() {
+    local dir="$1"
+    local descricao="$2"
+    if [ ! -d "$dir" ]; then
+        erro "$descricao não encontrado: $dir"
+    fi
+    info "$descricao verificado: ✓"
+}
+
 spinner() {
     local pid=$1
     local msg="${2:-Carregando...}"
@@ -210,6 +228,14 @@ TMP_DIR="$INSTALL_DIR/tmp"
 mkdir -p "$TMP_DIR"
 chmod 1777 "$TMP_DIR" 2>/dev/null || true
 
+# Verificação de arquivos
+echo ""
+echo "Verificando arquivos..."
+verifica_arquivo "$WINE_BIN" "Wine"
+verifica_arquivo "$PROOT_BIN" "proot"
+verifica_dir "$ROOTFS_DIR" "rootfs"
+echo ""
+
 ok "Ambiente preparado: $INSTALL_DIR"
 
 export WINEPREFIX="$WINEPREFIX_DIR"
@@ -271,17 +297,11 @@ mkdir -p "$INSTALL_DIR/logs"
 LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
 info "Log: $LOG_FILE"
 
-# Preparar diretório de tmp do usuário UID para o servidor Wine
-WINE_TMP_DIR="/tmp/.wine-$(id -u)"
-mkdir -p "$WINE_TMP_DIR"
-chmod 700 "$WINE_TMP_DIR" 2>/dev/null || true
-
-# Executar Wine com proot
+# Executar Wine com proot - SEM isolar /tmp para evitar problemas com wineserver
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -w "/root" \
-    -b "$WINE_TMP_DIR:/tmp/.wine-$(id -u)" \
-    -b /tmp:/tmp \
+    -b /tmp \
     -b /dev \
     -b /proc \
     -b /sys \
@@ -301,8 +321,8 @@ chmod 700 "$WINE_TMP_DIR" 2>/dev/null || true
         export WINESERVER='/opt/wine/bin/wineserver'
         export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH'
         
-        # Iniciar servidor Wine
-        /opt/wine/bin/wineserver -p 2>/dev/null || true
+        # Iniciar servidor Wine com timeout
+        timeout 5 /opt/wine/bin/wineserver -p 2>/dev/null || true
         sleep 1
         
         # Executar o jogo
@@ -317,5 +337,8 @@ else
     echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
     aviso "Verifique o log: $LOG_FILE"
     echo ""
-    tail -n 15 "$LOG_FILE" 2>/dev/null | sed 's/^/  /'
+    if [ -f "$LOG_FILE" ]; then
+        echo -e "${DIM}=== Últimas linhas do log ===${RESET}"
+        tail -n 20 "$LOG_FILE" 2>/dev/null | sed 's/^/  /'
+    fi
 fi
