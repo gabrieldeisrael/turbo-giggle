@@ -270,16 +270,20 @@ mkdir -p "$INSTALL_DIR/logs"
 LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
 info "Log: $LOG_FILE"
 
-# Preparar diretórios temporários
-chmod 1777 "$TMP_DIR" 2>/dev/null || true
-mkdir -p "$TMP_DIR/.wine-$(id -u)"
-chmod 700  "$TMP_DIR/.wine-$(id -u)" 2>/dev/null || true
+# Preparar diretórios temporários DENTRO do rootfs
+ROOTFS_TMP="$ROOTFS_DIR/tmp"
+mkdir -p "$ROOTFS_TMP"
+chmod 1777 "$ROOTFS_TMP" 2>/dev/null || true
 
-# Executar Wine com proot
+# Preparar o servidor Wine ANTES de executar
+export WINESERVER="$INSTALL_DIR/bin/wineserver"
+export WINEPREFIX="$WINEPREFIX_DIR"
+
+# Executar Wine com proot (sem isolamento de /tmp para evitar erros do servidor Wine)
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
-    -b "$TMP_DIR:/tmp" \
-    -b /tmp/.X11-unix \
+    -w "/root" \
+    -b /tmp:/tmp \
     -b /dev \
     -b /proc \
     -b /sys \
@@ -292,15 +296,18 @@ chmod 700  "$TMP_DIR/.wine-$(id -u)" 2>/dev/null || true
     -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
     -b "$INSTALL_DIR/home:/root" \
-    -w "/root" \
     /bin/sh -c "
         export WINEDEBUG=-all
         export DISPLAY='$DISPLAY'
         export WINEPREFIX='$WINEPREFIX_DIR'
         export WINESERVER='/opt/wine/bin/wineserver'
         export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH'
-        /opt/wine/bin/wineserver -p 2>/dev/null &
-        sleep 2
+        
+        # Aguardar conexão do servidor Wine
+        /opt/wine/bin/wineserver -p 2>/dev/null || true
+        sleep 1
+        
+        # Executar o jogo
         /opt/wine/bin/wine '$SELECTED' &>> '$LOG_FILE'
     "
 
@@ -311,4 +318,5 @@ if [ $EXIT -eq 0 ]; then
 else
     echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
     aviso "Verifique o log: $LOG_FILE"
+    tail -n 10 "$LOG_FILE" 2>/dev/null | sed 's/^/  /'
 fi
