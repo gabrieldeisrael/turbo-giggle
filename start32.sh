@@ -2,7 +2,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Passo 1: sem Desktop — usa cache oculto
+# Configuração de diretórios
 INSTALL_DIR="$HOME/.cache/wine67"
 WINEPREFIX_DIR="$INSTALL_DIR/prefix32"
 WINE_BIN="$INSTALL_DIR/bin/wine"
@@ -11,8 +11,8 @@ ROOTFS_DIR="$INSTALL_DIR/rootfs32"
 
 GE_URL="https://github.com/GloriousEggroll/wine-ge-custom/releases/download/GE-Proton8-26/wine-lutris-GE-Proton8-26-x86_64.tar.xz"
 PROOT_URL="https://proot.gitlab.io/proot/bin/proot"
-# Passo 6: ROOTFS_URL removido (não era usado)
 
+# Cores
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
 MAGENTA='\033[0;35m'
@@ -50,6 +50,7 @@ echo -e "  ${DIM}GE-Proton Portable Launcher 32-bit — sem sudo${RESET}"
 echo -e "  ${DIM}Base: $INSTALL_DIR${RESET}"
 echo ""
 
+# Verificar dependências
 command -v wget &>/dev/null || command -v curl &>/dev/null || erro "Instale wget ou curl"
 command -v tar  &>/dev/null || erro "tar não encontrado"
 
@@ -76,7 +77,9 @@ buscar_tar() {
                   "wine-lutris-GE-Proton*.tar" "wine-ge.tar.xz"; do
         resultado=$(find "$SCRIPT_DIR" -maxdepth 3 -name "$padrao" 2>/dev/null | head -1)
         [ -n "$resultado" ] && echo "$resultado" && return
-        resultado=$(find /media /run/media /mnt -maxdepth 5 -name "$padrao" 2>/dev/null | head -1)
+        resultado=$(find "$HOME/Downloads" -maxdepth 2 -name "$padrao" 2>/dev/null | head -1)
+        [ -n "$resultado" ] && echo "$resultado" && return
+        resultado=$(find /tmp -maxdepth 2 -name "$padrao" 2>/dev/null | head -1)
         [ -n "$resultado" ] && echo "$resultado" && return
     done
 }
@@ -88,7 +91,7 @@ instalar_wine() {
     local GE_TAR
     GE_TAR=$(buscar_tar)
 
-    if [ -n "$GE_TAR" ]; then
+    if [ -n "$GE_TAR" ] && [ -f "$GE_TAR" ]; then
         ok "Arquivo encontrado: $GE_TAR"
     else
         GE_TAR="$INSTALL_DIR/wine-ge.tar.xz"
@@ -177,31 +180,36 @@ instalar_rootfs() {
     fi
 }
 
+# Verificar e instalar dependências
 if [ ! -f "$WINE_BIN" ]; then
     instalar_wine
+fi
+
+if [ ! -f "$WINE_BIN" ]; then
+    erro "Wine não foi instalado. Verifique sua conexão ou espaço em disco."
 fi
 
 instalar_proot
 instalar_rootfs
 
+# Garantir permissões
 [ ! -x "$WINE_BIN" ] && chmod +x "$WINE_BIN"
+[ ! -x "$PROOT_BIN" ] && chmod +x "$PROOT_BIN"
 
+# Criar estrutura de diretórios
 mkdir -p "$ROOTFS_DIR/opt/wine/bin"
 mkdir -p "$ROOTFS_DIR/opt/wine/lib"
 mkdir -p "$ROOTFS_DIR/opt/wine/lib64"
-
-# estrutura básica do rootfs
 mkdir -p "$ROOTFS_DIR/root"
 mkdir -p "$ROOTFS_DIR/tmp"
 mkdir -p "$ROOTFS_DIR/dev/shm"
-chmod 1777 "$ROOTFS_DIR/tmp"
+chmod 1777 "$ROOTFS_DIR/tmp" 2>/dev/null || true
 
-# home e tmp isolados
 mkdir -p "$INSTALL_DIR/home"
 TMP_DIR="$INSTALL_DIR/tmp"
 mkdir -p "$TMP_DIR"
 
-ok "Wine: $WINE_BIN"
+ok "Ambiente preparado: $INSTALL_DIR"
 
 export WINEPREFIX="$WINEPREFIX_DIR"
 mkdir -p "$WINEPREFIX_DIR"
@@ -222,7 +230,7 @@ if [ ${#EXES[@]} -eq 0 ]; then
     [ -f "$SELECTED" ] || erro "Arquivo não encontrado: '$SELECTED'"
 else
     echo ""
-    echo "Jogos:"
+    echo "Jogos encontrados:"
     echo ""
     for i in "${!EXES[@]}"; do
         echo -e "  ${YELLOW}[$((i+1))]${RESET} $(basename "${EXES[$i]}")"
@@ -248,7 +256,7 @@ fi
 [ -z "$SELECTED" ] && erro "Nenhum arquivo selecionado."
 [ ! -f "$SELECTED" ] && erro "Arquivo não encontrado: '$SELECTED'"
 
-# Passo 3: WINEPREFIX por jogo
+# Criar WINEPREFIX por jogo
 GAME_NAME="$(basename "$SELECTED" .exe | tr -cd '[:alnum:]_-')"
 WINEPREFIX_DIR="$INSTALL_DIR/prefixes/$GAME_NAME"
 export WINEPREFIX="$WINEPREFIX_DIR"
@@ -262,11 +270,12 @@ mkdir -p "$INSTALL_DIR/logs"
 LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
 info "Log: $LOG_FILE"
 
-# permissões corretas no tmp privado + diretório IPC do Wine
-chmod 1777 "$TMP_DIR"
+# Preparar diretórios temporários
+chmod 1777 "$TMP_DIR" 2>/dev/null || true
 mkdir -p "$TMP_DIR/.wine-$(id -u)"
-chmod 700  "$TMP_DIR/.wine-$(id -u)"
+chmod 700  "$TMP_DIR/.wine-$(id -u)" 2>/dev/null || true
 
+# Executar Wine com proot
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -b "$TMP_DIR:/tmp" \
@@ -289,12 +298,17 @@ chmod 700  "$TMP_DIR/.wine-$(id -u)"
         export DISPLAY='$DISPLAY'
         export WINEPREFIX='$WINEPREFIX_DIR'
         export WINESERVER='/opt/wine/bin/wineserver'
-        export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64:$LD_LIBRARY_PATH'
-        /opt/wine/bin/wineserver -p &
+        export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH'
+        /opt/wine/bin/wineserver -p 2>/dev/null &
         sleep 2
         /opt/wine/bin/wine '$SELECTED' &>> '$LOG_FILE'
     "
 
 EXIT=$?
 echo ""
-[ $EXIT -eq 0 ] && ok "Encerrado." || echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
+if [ $EXIT -eq 0 ]; then
+    ok "Encerrado com sucesso."
+else
+    echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
+    aviso "Verifique o log: $LOG_FILE"
+fi
