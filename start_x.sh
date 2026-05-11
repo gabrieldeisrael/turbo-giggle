@@ -12,7 +12,7 @@ else
     DESKTOP="$HOME/Desktop"
 fi
 
-INSTALL_DIR="$DESKTOP/wine67"
+INSTALL_DIR="$HOME/.cache/wine67"
 WINE_BIN="$INSTALL_DIR/bin/wine"
 
 WINE_URL="https://github.com/Kron4ek/Wine-Builds/releases/download/11.8/wine-11.8-amd64-wow64.tar.xz"
@@ -133,8 +133,7 @@ echo ""
 echo "Procurando jogos..."
 
 mapfile -t EXES < <(find "$SCRIPT_DIR" -name "*.exe" \
-    -not -path "*/wine67/*" \
-    -not -path "*/.wine67*" 2>/dev/null | sort)
+    -not -path "*/.cache/wine67/*" 2>/dev/null | sort)
 
 if [ ${#EXES[@]} -eq 0 ]; then
     echo ""
