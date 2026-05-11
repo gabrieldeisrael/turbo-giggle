@@ -2,17 +2,8 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# detecta desktop em português ou inglês
-if [ -d "$HOME/Área de Trabalho" ]; then
-    DESKTOP="$HOME/Área de Trabalho"
-elif [ -d "$HOME/Desktop" ]; then
-    DESKTOP="$HOME/Desktop"
-else
-    mkdir -p "$HOME/Desktop"
-    DESKTOP="$HOME/Desktop"
-fi
-
-INSTALL_DIR="$DESKTOP/wine67"
+# Passo 1: sem Desktop — usa cache oculto
+INSTALL_DIR="$HOME/.cache/wine67"
 WINEPREFIX_DIR="$INSTALL_DIR/prefix32"
 WINE_BIN="$INSTALL_DIR/bin/wine"
 PROOT_BIN="$INSTALL_DIR/proot"
@@ -20,7 +11,7 @@ ROOTFS_DIR="$INSTALL_DIR/rootfs32"
 
 GE_URL="https://github.com/GloriousEggroll/wine-ge-custom/releases/download/GE-Proton8-26/wine-lutris-GE-Proton8-26-x86_64.tar.xz"
 PROOT_URL="https://proot.gitlab.io/proot/bin/proot"
-ROOTFS_URL="https://github.com/multiarch/qemu-user-static/releases/download/v7.2.0-1/x86_rootfs.tar.gz"
+# Passo 6: ROOTFS_URL removido (não era usado)
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
@@ -31,7 +22,6 @@ ok()    { echo -e "${GREEN}✔  $1${RESET}"; }
 info()  { echo -e "${CYAN}➜  $1${RESET}"; }
 aviso() { echo -e "${YELLOW}⚠  $1${RESET}"; }
 
-# spinner de carregamento
 spinner() {
     local pid=$1
     local msg="${2:-Carregando...}"
@@ -60,13 +50,11 @@ echo -e "  ${DIM}GE-Proton Portable Launcher 32-bit — sem sudo${RESET}"
 echo -e "  ${DIM}Base: $INSTALL_DIR${RESET}"
 echo ""
 
-# dependências mínimas
 command -v wget &>/dev/null || command -v curl &>/dev/null || erro "Instale wget ou curl"
 command -v tar  &>/dev/null || erro "tar não encontrado"
 
 mkdir -p "$INSTALL_DIR"
 
-# helper de download com spinner
 baixar() {
     local url="$1" dest="$2" nome="$3"
     if command -v wget &>/dev/null; then
@@ -82,7 +70,6 @@ baixar() {
         { rm -f "$dest"; erro "Servidor retornou erro ao baixar $nome"; }
 }
 
-# procura tar do wine no pendrive ou pasta do script
 buscar_tar() {
     local resultado=""
     for padrao in "wine-lutris-GE-Proton*.tar.xz" "wine-lutris-GE-Proton*.tar.gz" \
@@ -94,7 +81,6 @@ buscar_tar() {
     done
 }
 
-# instala o wine ge-proton
 instalar_wine() {
     info "Instalando GE-Proton..."
     mkdir -p "$INSTALL_DIR"
@@ -140,7 +126,6 @@ instalar_wine() {
     ok "Wine instalado!"
 }
 
-# instala proot x86_64 estático
 instalar_proot() {
     if [ ! -f "$PROOT_BIN" ]; then
         baixar "$PROOT_URL" "$PROOT_BIN" "proot"
@@ -151,12 +136,10 @@ instalar_proot() {
     fi
 }
 
-# instala rootfs Debian i386 com glibc 32-bit
 instalar_rootfs() {
     if [ ! -d "$ROOTFS_DIR/lib" ]; then
         local ROOTFS_TAR="$INSTALL_DIR/rootfs32.tar.gz"
 
-        # tenta Debian bookworm i386 oficial via debuerreotype
         local DEBIAN_URL="https://github.com/gabrieldeisrael/Wine67/releases/download/v1.0/rootfs_i386_wine.tar.xz"
         local FALLBACK_URL="https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86/alpine-minirootfs-3.19.1-x86.tar.gz"
 
@@ -171,7 +154,6 @@ instalar_rootfs() {
         wait "$dl_pid"
         local dl_exit=$?
 
-        # verifica se o download foi válido
         if [ $dl_exit -ne 0 ] || [ ! -s "$ROOTFS_TAR" ] || \
            (command -v file &>/dev/null && file "$ROOTFS_TAR" 2>/dev/null | grep -qi "HTML\|ASCII text"); then
             aviso "Debian falhou. Tentando Alpine x86..."
@@ -181,7 +163,6 @@ instalar_rootfs() {
 
         mkdir -p "$ROOTFS_DIR"
 
-        # detecta compressão do rootfs
         local ROOTFS_FLAG="-xzf"
         command -v file &>/dev/null && file "$ROOTFS_TAR" 2>/dev/null | grep -qi "XZ" && ROOTFS_FLAG="-xJf"
 
@@ -196,7 +177,6 @@ instalar_rootfs() {
     fi
 }
 
-# instala componentes se necessário
 if [ ! -f "$WINE_BIN" ]; then
     instalar_wine
 fi
@@ -206,26 +186,24 @@ instalar_rootfs
 
 [ ! -x "$WINE_BIN" ] && chmod +x "$WINE_BIN"
 
-# cria pontos de montagem dentro do rootfs
 mkdir -p "$ROOTFS_DIR/opt/wine/bin"
 mkdir -p "$ROOTFS_DIR/opt/wine/lib"
 mkdir -p "$ROOTFS_DIR/opt/wine/lib64"
-mkdir -p "$ROOTFS_DIR$HOME"
+
+# Passo 2: home isolado em vez de bind do $HOME inteiro
+mkdir -p "$INSTALL_DIR/home"
 
 ok "Wine: $WINE_BIN"
 
-# configura prefixo e display
 export WINEPREFIX="$WINEPREFIX_DIR"
 mkdir -p "$WINEPREFIX_DIR"
 [ -z "$DISPLAY" ] && export DISPLAY=:0
 
-# procura executáveis na pasta do script
 echo ""
 echo "Procurando jogos..."
 
 mapfile -t EXES < <(find "$SCRIPT_DIR" -name "*.exe" \
-    -not -path "*/wine67/*" \
-    -not -path "*/.wine67*" 2>/dev/null | sort)
+    -not -path "*/.cache/wine67/*" 2>/dev/null | sort)
 
 if [ ${#EXES[@]} -eq 0 ]; then
     echo ""
@@ -262,24 +240,21 @@ fi
 [ -z "$SELECTED" ] && erro "Nenhum arquivo selecionado."
 [ ! -f "$SELECTED" ] && erro "Arquivo não encontrado: '$SELECTED'"
 
+# Passo 3: WINEPREFIX por jogo
+GAME_NAME="$(basename "$SELECTED" .exe)"
+WINEPREFIX_DIR="$INSTALL_DIR/prefixes/$GAME_NAME"
+export WINEPREFIX="$WINEPREFIX_DIR"
+mkdir -p "$WINEPREFIX_DIR"
+
 echo ""
 echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
 echo ""
 
-# executa wine 32-bit dentro do proot com rootfs i386
-mkdir -p "$WINEPREFIX_DIR"
-
-# limpa wineservers antigos que podem conflitar
-pkill -9 wineserver 2>/dev/null
-pkill -9 wineserver32 2>/dev/null
-rm -rf /tmp/wine-* /tmp/.wine-$(id -u)
-sleep 1
-
-CMD="WINEPREFIX=$WINEPREFIX_DIR LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /usr/lib/wine/wineserver32 & sleep 3 && WINEPREFIX=$WINEPREFIX_DIR WINESERVER=/usr/lib/wine/wineserver32 LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /opt/wine/bin/wine $SELECTED 2>&1"
-
+# Passo 4: matar apenas o wineserver do prefix atual, não globalmente
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -b /tmp \
+    -b /tmp/.X11-unix \
     -b /dev \
     -b /proc \
     -b /sys \
@@ -289,9 +264,14 @@ CMD="WINEPREFIX=$WINEPREFIX_DIR LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64 /u
     -b "$INSTALL_DIR/share:/opt/wine/share" \
     -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
-    -b "$HOME:$HOME" \
+    -b "$INSTALL_DIR/home:/root" \
     -w "/" \
-    /bin/sh -c "$CMD"
+    /bin/sh -c "
+        WINEPREFIX=$WINEPREFIX_DIR LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH /usr/lib/wine/wineserver32 &
+        sleep 3
+        WINEPREFIX=$WINEPREFIX_DIR WINESERVER=/usr/lib/wine/wineserver32 LD_LIBRARY_PATH=/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH /opt/wine/bin/wine '$SELECTED' 2>&1
+        WINEPREFIX=$WINEPREFIX_DIR /usr/lib/wine/wineserver32 -k
+    "
 
 EXIT=$?
 echo ""
