@@ -216,7 +216,7 @@ instalar_rootfs
 [ ! -x "$WINE_BIN" ] && chmod +x "$WINE_BIN"
 [ ! -x "$PROOT_BIN" ] && chmod +x "$PROOT_BIN"
 
-# Criar estrutura de diretórios
+# Criar estrutura de diretórios com permissões corretas
 mkdir -p "$ROOTFS_DIR/opt/wine/bin"
 mkdir -p "$ROOTFS_DIR/opt/wine/lib"
 mkdir -p "$ROOTFS_DIR/opt/wine/lib64"
@@ -224,9 +224,13 @@ mkdir -p "$ROOTFS_DIR/root"
 mkdir -p "$ROOTFS_DIR/tmp"
 mkdir -p "$ROOTFS_DIR/dev/shm"
 
+# IMPORTANTE: Dar permissões de escrita total ao /tmp do rootfs (Wine precisa criar arquivos temporários)
+chmod 1777 "$ROOTFS_DIR/tmp" 2>/dev/null || true
+
 mkdir -p "$INSTALL_DIR/home"
 TMP_DIR="$INSTALL_DIR/tmp"
 mkdir -p "$TMP_DIR"
+chmod 1777 "$TMP_DIR" 2>/dev/null || true
 
 # ===================== VERIFICAÇÃO =====================
 echo ""
@@ -300,11 +304,15 @@ LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
 info "Log: $LOG_FILE"
 
 # ===================== EXECUÇÃO DO JOGO =====================
-# FIX: NÃO isolar /tmp - mapear diretamente
+# FIX: Usar tmp isolado dentro do proot com permissões corretas
+PROOT_TMP="$INSTALL_DIR/tmp/$GAME_NAME"
+mkdir -p "$PROOT_TMP"
+chmod 1777 "$PROOT_TMP" 2>/dev/null || true
+
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -w "/root" \
-    -b /tmp \
+    -b "$PROOT_TMP:/tmp" \
     -b /dev \
     -b /proc \
     -b /sys \
@@ -325,10 +333,14 @@ info "Log: $LOG_FILE"
         export WINESERVER='/opt/wine/bin/wineserver'
         export LD_LIBRARY_PATH='/opt/wine/lib:/opt/wine/lib64:\$LD_LIBRARY_PATH'
         
+        # Garantir que /tmp existe e tem permissões corretas
+        mkdir -p /tmp
+        chmod 1777 /tmp 2>/dev/null || true
+        
         # Dar tempo para preparar ambiente
         sleep 1
         
-        # Executar o jogo diretamente (sem wineserver preliminar)
+        # Executar o jogo diretamente
         exec /opt/wine/bin/wine '$SELECTED' 2>&1 | tee -a '$LOG_FILE'
     "
 
