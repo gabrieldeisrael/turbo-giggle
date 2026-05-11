@@ -1,5 +1,5 @@
 #!/bin/bash
-#JOAO POR FAVOR NAO MEXE NESSA VERSAO
+#JOAO POR FAVOR NAO MEXE NESSA VERSAO -vo apaga
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # detecta desktop em português ou inglês
