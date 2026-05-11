@@ -185,9 +185,7 @@ instalar_rootfs
 
 [ ! -x "$WINE_BIN" ] && chmod +x "$WINE_BIN"
 
-mkdir -p "$ROOTFS_DIR/opt/wine/bin"
-mkdir -p "$ROOTFS_DIR/opt/wine/lib"
-mkdir -p "$ROOTFS_DIR/opt/wine/lib64"
+mkdir -p "$ROOTFS_DIR/opt/wine"
 
 # estrutura básica do rootfs
 mkdir -p "$ROOTFS_DIR/root"
@@ -274,10 +272,7 @@ chmod 700  "$TMP_DIR/.wine-$(id -u)"
     -b /proc \
     -b /sys \
     -b /run \
-    -b "$INSTALL_DIR/bin:/opt/wine/bin" \
-    -b "$INSTALL_DIR/lib:/opt/wine/lib" \
-    -b "$INSTALL_DIR/lib64:/opt/wine/lib64" \
-    -b "$INSTALL_DIR/share:/opt/wine/share" \
+    -b "$INSTALL_DIR:/opt/wine" \
     -b "$INSTALL_DIR/logs:$INSTALL_DIR/logs" \
     -b "$WINEPREFIX_DIR:$WINEPREFIX_DIR" \
     -b "$(dirname "$SELECTED"):$(dirname "$SELECTED")" \
