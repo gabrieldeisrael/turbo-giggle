@@ -26,18 +26,20 @@ verifica_arquivo() {
     local arquivo="$1"
     local descricao="$2"
     if [ ! -f "$arquivo" ]; then
-        erro "$descricao não encontrado: $arquivo"
+        return 1
     fi
-    info "$descricao verificado: ✓"
+    echo -e "${GREEN}✔  $descricao${RESET}"
+    return 0
 }
 
 verifica_dir() {
     local dir="$1"
     local descricao="$2"
     if [ ! -d "$dir" ]; then
-        erro "$descricao não encontrado: $dir"
+        return 1
     fi
-    info "$descricao verificado: ✓"
+    echo -e "${GREEN}✔  $descricao${RESET}"
+    return 0
 }
 
 spinner() {
@@ -198,7 +200,7 @@ instalar_rootfs() {
     fi
 }
 
-# Verificar e instalar dependências
+# ===================== INSTALAÇÃO =====================
 if [ ! -f "$WINE_BIN" ]; then
     instalar_wine
 fi
@@ -228,22 +230,26 @@ TMP_DIR="$INSTALL_DIR/tmp"
 mkdir -p "$TMP_DIR"
 chmod 1777 "$TMP_DIR" 2>/dev/null || true
 
-# Verificação de arquivos
+# ===================== VERIFICAÇÃO =====================
 echo ""
-echo "Verificando arquivos..."
-verifica_arquivo "$WINE_BIN" "Wine"
-verifica_arquivo "$PROOT_BIN" "proot"
-verifica_dir "$ROOTFS_DIR" "rootfs"
+echo -e "${BOLD}Verificando arquivos instalados:${RESET}"
 echo ""
+verifica_arquivo "$WINE_BIN" "Wine GE-Proton" || erro "Wine não foi encontrado após instalação"
+verifica_arquivo "$PROOT_BIN" "proot" || erro "proot não foi encontrado após instalação"
+verifica_dir "$ROOTFS_DIR" "rootfs32" || erro "rootfs não foi encontrado após instalação"
+verifica_dir "$INSTALL_DIR/bin" "/opt/wine/bin" || erro "Diretório de binários não existe"
+verifica_dir "$INSTALL_DIR/lib" "/opt/wine/lib" || erro "Diretório de bibliotecas não existe"
 
-ok "Ambiente preparado: $INSTALL_DIR"
+echo ""
+ok "✓ Ambiente completamente configurado!"
+echo ""
 
 export WINEPREFIX="$WINEPREFIX_DIR"
 mkdir -p "$WINEPREFIX_DIR"
 [ -z "$DISPLAY" ] && export DISPLAY=:0
 
-echo ""
 echo "Procurando jogos..."
+echo ""
 
 mapfile -t EXES < <(find "$SCRIPT_DIR" -name "*.exe" \
     -not -path "*/.cache/wine67/*" 2>/dev/null | sort)
@@ -257,7 +263,7 @@ if [ ${#EXES[@]} -eq 0 ]; then
     [ -f "$SELECTED" ] || erro "Arquivo não encontrado: '$SELECTED'"
 else
     echo ""
-    echo "Jogos encontrados:"
+    echo -e "${BOLD}Jogos encontrados:${RESET}"
     echo ""
     for i in "${!EXES[@]}"; do
         echo -e "  ${YELLOW}[$((i+1))]${RESET} $(basename "${EXES[$i]}")"
@@ -290,14 +296,14 @@ export WINEPREFIX="$WINEPREFIX_DIR"
 mkdir -p "$WINEPREFIX_DIR"
 
 echo ""
-echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
+echo -e "${GREEN}${BOLD}Iniciando: $(basename "$SELECTED")${RESET}"
 echo ""
 
 mkdir -p "$INSTALL_DIR/logs"
 LOG_FILE="$INSTALL_DIR/logs/${GAME_NAME}.log"
 info "Log: $LOG_FILE"
 
-# Executar Wine com proot - SEM isolar /tmp para evitar problemas com wineserver
+# ===================== EXECUÇÃO DO JOGO =====================
 "$PROOT_BIN" \
     -r "$ROOTFS_DIR" \
     -w "/root" \
