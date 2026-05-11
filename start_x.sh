@@ -168,7 +168,12 @@ instalar_rootfs() {
         tar "$ROOTFS_FLAG" "$ROOTFS_TAR" -C "$ROOTFS_DIR" --strip-components=1 2>/dev/null &
         local tar_pid=$!
         spinner "$tar_pid" "Extraindo rootfs..."
-        wait "$tar_pid" || erro "Falha ao extrair rootfs. Delete '$ROOTFS_DIR' e tente novamente."
+        wait "$tar_pid"
+        TAR_EXIT=$?
+        if [ $TAR_EXIT -ne 0 ]; then
+            aviso "Extração retornou código $TAR_EXIT (ignorando, verificando arquivos...)"
+        fi
+        [ -f "$ROOTFS_DIR/bin/sh" ] || erro "Rootfs incompleto. Delete '$ROOTFS_DIR' e tente novamente."
         rm -f "$ROOTFS_TAR"
         ok "rootfs instalado!"
     else
@@ -281,10 +286,8 @@ chmod 700  "$TMP_DIR/.wine-$(id -u)"
         export WINEDEBUG=-all
         export DISPLAY='$DISPLAY'
         export WINEPREFIX='$WINEPREFIX_DIR'
-        export LD_LIBRARY_PATH='/opt/lib:/opt/lib64:/opt/lib/wine:/opt/lib64/wine'
-        /usr/bin/wine '$SELECTED' &>> '$LOG_FILE'
+        /opt/bin/wine '$SELECTED' &>> '$LOG_FILE'
     "
-
 EXIT=$?
 echo ""
 [ $EXIT -eq 0 ] && ok "Encerrado." || echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
