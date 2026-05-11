@@ -1,5 +1,5 @@
 #!/bin/bash
-#JOAO POR FAVOR NAO MEXE NESSA VERSAO -vo apaga
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # detecta desktop em português ou inglês
@@ -179,6 +179,12 @@ mkdir -p "$WINEPREFIX"
 echo ""
 echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
 echo ""
+
+# configura áudio via PipeWire/PulseAudio
+PULSE_SOCKET=$(pactl info 2>/dev/null | grep 'Server String' | awk '{print $3}')
+if [ -n "$PULSE_SOCKET" ]; then
+    export PULSE_SERVER="unix:$PULSE_SOCKET"
+fi
 
 "$WINE_BIN" "$SELECTED"
 
