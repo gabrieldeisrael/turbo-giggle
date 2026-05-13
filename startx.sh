@@ -130,6 +130,11 @@ ok "Versão: $("$WINE_BIN" --version 2>/dev/null || echo 'desconhecida')"
 export LD_LIBRARY_PATH="$INSTALL_DIR/lib:$INSTALL_DIR/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 [ -z "$DISPLAY" ] && export DISPLAY=:0
 
+# Fix para erro 002c winemenubuilder e otimizações
+export WINEARCH=win64
+export WINE_CPU_TOPOLOGY=4:2
+export WINEDLLOVERRIDES="winemenubuilder=d"
+
 echo ""
 echo "Procurando jogos..."
 
