@@ -130,10 +130,15 @@ ok "Versão: $("$WINE_BIN" --version 2>/dev/null || echo 'desconhecida')"
 export LD_LIBRARY_PATH="$INSTALL_DIR/lib:$INSTALL_DIR/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 [ -z "$DISPLAY" ] && export DISPLAY=:0
 
-# Fix para erro 002c winemenubuilder e otimizações
+# Fix para erro 002c winemenubuilder e RPC/COM
 export WINEARCH=win64
 export WINE_CPU_TOPOLOGY=4:2
-export WINEDLLOVERRIDES="winemenubuilder=d"
+export WINEDLLOVERRIDES="winemenubuilder=d;rpcss=n;ole32=n;midimap=n"
+export STAGING_SHARED_MEMORY=1
+export DXVK_HUD=fps
+
+# Desabilita dxvk se tiver problema
+#export DXVK_FILTER_DEVICE_NAME=Intel
 
 echo ""
 echo "Procurando jogos..."
