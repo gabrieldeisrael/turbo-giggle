@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,12 +14,21 @@ fi
 
 INSTALL_DIR="$HOME/.cache/wine67"
 WINE_BIN="$INSTALL_DIR/bin/wine"
-
 WINE_URL="https://github.com/Kron4ek/Wine-Builds/releases/download/11.8/wine-11.8-amd64-wow64.tar.xz"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
 MAGENTA='\033[0;35m'
+
+# Detectar ambiente desktop
+DESKTOP_SESSION="${DESKTOP_SESSION:-xfce}"
+XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-x11}"
+
+# Flags de compatibilidade padrão
+DEBUG_MODE=0
+COMPAT_LEVEL="medium"  # low, medium, high
+USE_DXVK=1
+DXVK_HUD=""
 
 erro()  { echo -e "${RED}❌ $1${RESET}"; exit 1; }
 ok()    { echo -e "${GREEN}✔  $1${RESET}"; }
@@ -41,19 +49,66 @@ spinner() {
     echo -ne "\r  ${GREEN}[✔]${RESET}  ${msg}\n"
 }
 
-clear
+exibir_logo() {
+    clear
+    echo -e "${MAGENTA}${BOLD}"
+    echo "  ██╗    ██╗██╗███╗   ██╗███████╗ ██████╗ ███████╗"
+    echo "  ██║    ██║██║████╗  ██║██╔════╝██╔════╝ ╚════██║"
+    echo "  ██║ █╗ ██║██║██╔██╗ ██║█████╗  ███████╗     ██╔╝"
+    echo "  ██║███╗██║██║██║╚██╗██║██╔══╝  ██╔═══██╗   ██╔╝ "
+    echo "  ╚███╔███╔╝██║██║ ╚████║███████╗╚██████╔╝   ██║  "
+    echo "   ╚══╝╚══╝ ╚═╝╚═╝  ╚═══╝╚══════╝ ╚═════╝    ╚═╝  "
+    echo -e "${RESET}"
+    echo -e "  ${DIM}Wine-Kron4ek wow64 Portable Launcher — sem sudo${RESET}"
+    echo -e "  ${DIM}Base: $INSTALL_DIR${RESET}"
+    echo -e "  ${DIM}Desktop: $DESKTOP_SESSION | Sessão: $XDG_SESSION_TYPE${RESET}"
+    echo ""
+}
 
-echo -e "${MAGENTA}${BOLD}"
-echo "  ██╗    ██╗██╗███╗   ██╗███████╗ ██████╗ ███████╗"
-echo "  ██║    ██║██║████╗  ██║██╔════╝██╔════╝ ╚════██║"
-echo "  ██║ █╗ ██║██║██╔██╗ ██║█████╗  ███████╗     ██╔╝"
-echo "  ██║███╗██║██║██║╚██╗██║██╔══╝  ██╔═══██╗   ██╔╝ "
-echo "  ╚███╔███╔╝██║██║ ╚████║███████╗╚██████╔╝   ██║  "
-echo "   ╚══╝╚══╝ ╚═╝╚═╝  ╚═══╝╚══════╝ ╚═════╝    ╚═╝  "
-echo -e "${RESET}"
-echo -e "  ${DIM}Wine-Kron4ek wow64 Portable Launcher — sem sudo${RESET}"
-echo -e "  ${DIM}Base: $INSTALL_DIR${RESET}"
-echo ""
+menu_compatibilidade() {
+    echo ""
+    echo -e "${BOLD}Selecione o nível de compatibilidade:${RESET}"
+    echo ""
+    echo -e "  ${YELLOW}[1]${RESET} ${DIM}BAIXO${RESET}   - Máxima compatibilidade (sem DirectX, mais lento)"
+    echo -e "  ${YELLOW}[2]${RESET} ${DIM}MÉDIO${RESET}  - Balanceado (DirectX/DXVK padrão)"
+    echo -e "  ${YELLOW}[3]${RESET} ${DIM}ALTO${RESET}    - Máxima performance (DXVK HUD + otimizações)"
+    echo -e "  ${YELLOW}[4]${RESET} ${DIM}DEBUG${RESET}   - Modo debug com logs detalhados"
+    echo ""
+    echo -ne "${CYAN}Escolha (1-4): ${RESET}"
+    read -r COMPAT_CHOICE
+
+    case "$COMPAT_CHOICE" in
+        1)
+            COMPAT_LEVEL="low"
+            USE_DXVK=0
+            DXVK_HUD=""
+            ok "Modo: COMPATIBILIDADE (sem DirectX)"
+            ;;
+        2)
+            COMPAT_LEVEL="medium"
+            USE_DXVK=1
+            DXVK_HUD=""
+            ok "Modo: BALANCEADO (DirectX padrão)"
+            ;;
+        3)
+            COMPAT_LEVEL="high"
+            USE_DXVK=1
+            DXVK_HUD="fps"
+            ok "Modo: PERFORMANCE (com HUD de FPS)"
+            ;;
+        4)
+            COMPAT_LEVEL="medium"
+            USE_DXVK=1
+            DEBUG_MODE=1
+            ok "Modo: DEBUG (logs detalhados)"
+            ;;
+        *)
+            aviso "Opção inválida, usando padrão (MÉDIO)"
+            COMPAT_LEVEL="medium"
+            USE_DXVK=1
+            ;;
+    esac
+}
 
 command -v wget &>/dev/null || command -v curl &>/dev/null || erro "Instale wget ou curl"
 command -v tar  &>/dev/null || erro "tar não encontrado"
@@ -114,8 +169,13 @@ instalar_wine() {
     wait "$tar_pid" || erro "Falha ao extrair. Delete '$INSTALL_DIR' e tente novamente."
 
     find "$INSTALL_DIR/bin" -type f -exec chmod +x {} \; 2>/dev/null
+    find "$INSTALL_DIR/lib" -type f -exec chmod +x {} \; 2>/dev/null
+    find "$INSTALL_DIR/lib64" -type f -exec chmod +x {} \; 2>/dev/null
     ok "Wine instalado!"
 }
+
+exibir_logo
+menu_compatibilidade
 
 if [ ! -f "$WINE_BIN" ]; then
     instalar_wine
@@ -126,19 +186,70 @@ fi
 ok "Wine: $WINE_BIN"
 ok "Versão: $("$WINE_BIN" --version 2>/dev/null || echo 'desconhecida')"
 
-# configura ambiente do wine
+# Configuração do ambiente do wine
 export LD_LIBRARY_PATH="$INSTALL_DIR/lib:$INSTALL_DIR/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-[ -z "$DISPLAY" ] && export DISPLAY=:0
 
-# Fix para erro 002c winemenubuilder e RPC/COM
+# Detecção de Display (X11 vs Wayland)
+if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+    aviso "Detectado Wayland - pode ter incompatibilidades"
+    export GDK_BACKEND=x11
+    export QT_QPA_PLATFORM=xcb
+fi
+
+if [ -z "$DISPLAY" ]; then
+    [ -n "$WAYLAND_DISPLAY" ] && export DISPLAY=:0 || export DISPLAY=:0
+fi
+
+# Configurações base do Wine
 export WINEARCH=win64
 export WINE_CPU_TOPOLOGY=4:2
 export WINEDLLOVERRIDES="winemenubuilder=d;rpcss=n;ole32=n;midimap=n"
 export STAGING_SHARED_MEMORY=1
-export DXVK_HUD=fps
 
-# Desabilita dxvk se tiver problema
-#export DXVK_FILTER_DEVICE_NAME=Intel
+# Configurações específicas por nível de compatibilidade
+if [ "$COMPAT_LEVEL" = "low" ]; then
+    export DXVK_FILTER_DEVICE_NAME=""
+    export WINE_CPU_TOPOLOGY=2:1
+    info "Modo BAIXO: DXVK desativado, CPU reduzida"
+elif [ "$COMPAT_LEVEL" = "high" ]; then
+    export DXVK_HUD="fps,memory"
+    export DXVK_FRAME_RATE=0
+    info "Modo ALTO: Performance máxima com HUD"
+fi
+
+# Áudio: Detecção melhorada (PipeWire/PulseAudio)
+configar_audio() {
+    # Verificar PipeWire primeiro
+    if pactl info &>/dev/null; then
+        local PULSE_SOCKET
+        PULSE_SOCKET=$(pactl info 2>/dev/null | grep 'Server String' | awk '{print $3}')
+        if [ -n "$PULSE_SOCKET" ]; then
+            export PULSE_SERVER="unix:$PULSE_SOCKET"
+            ok "Audio: PulseAudio detectado"
+            return
+        fi
+    fi
+
+    # Verificar variáveis de PipeWire
+    if [ -S "$XDG_RUNTIME_DIR/pipewire-0" ]; then
+        export PIPEWIRE_RUNTIME_DIR="$XDG_RUNTIME_DIR"
+        ok "Audio: PipeWire detectado"
+        return
+    fi
+
+    # Fallback: usar valores padrão
+    aviso "Audio: Usando configuração padrão"
+}
+
+configar_audio
+
+# Debug mode
+if [ $DEBUG_MODE -eq 1 ]; then
+    info "Modo DEBUG ativo - criando log..."
+    export WINE_DEBUG="+tid,+seh,+relay"
+    export DXVK_LOG_LEVEL=debug
+    DEBUG_LOG="$INSTALL_DIR/debug_$(date +%s).log"
+fi
 
 echo ""
 echo "Procurando jogos..."
@@ -155,7 +266,7 @@ if [ ${#EXES[@]} -eq 0 ]; then
     [ -f "$SELECTED" ] || erro "Arquivo não encontrado: '$SELECTED'"
 else
     echo ""
-    echo "Jogos:"
+    echo "Jogos encontrados:"
     echo ""
     for i in "${!EXES[@]}"; do
         echo -e "  ${YELLOW}[$((i+1))]${RESET} $(basename "${EXES[$i]}")"
@@ -181,23 +292,39 @@ fi
 [ -z "$SELECTED" ] && erro "Nenhum arquivo selecionado."
 [ ! -f "$SELECTED" ] && erro "Arquivo não encontrado: '$SELECTED'"
 
-# prefix por jogo
+# Prefix por jogo
 GAME_NAME="$(basename "$SELECTED" .exe | tr -cd '[:alnum:]_-')"
 export WINEPREFIX="$INSTALL_DIR/prefixes/$GAME_NAME"
 mkdir -p "$WINEPREFIX"
 
 echo ""
-echo -e "${GREEN}Iniciando: $(basename "$SELECTED")${RESET}"
+echo -e "${GREEN}╔═══════════════════════════════════════╗${RESET}"
+echo -e "${GREEN}║ Iniciando: $(basename "$SELECTED")${RESET}"
+echo -e "${GREEN}║ Compatibilidade: ${BOLD}$COMPAT_LEVEL${RESET}${GREEN}${RESET}"
+echo -e "${GREEN}║ Prefix: $GAME_NAME${RESET}"
+if [ $DEBUG_MODE -eq 1 ]; then
+    echo -e "${YELLOW}║ Debug Log: $DEBUG_LOG${RESET}"
+fi
+echo -e "${GREEN}╚═══════════════════════════════════════╝${RESET}"
 echo ""
 
-# configura áudio via PipeWire/PulseAudio
-PULSE_SOCKET=$(pactl info 2>/dev/null | grep 'Server String' | awk '{print $3}')
-if [ -n "$PULSE_SOCKET" ]; then
-    export PULSE_SERVER="unix:$PULSE_SOCKET"
+# Executar jogo com captura opcional de erros
+if [ $DEBUG_MODE -eq 1 ]; then
+    "$WINE_BIN" "$SELECTED" 2>&1 | tee "$DEBUG_LOG"
+else
+    "$WINE_BIN" "$SELECTED"
 fi
-
-"$WINE_BIN" "$SELECTED"
 
 EXIT=$?
 echo ""
-[ $EXIT -eq 0 ] && ok "Encerrado." || echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
+if [ $EXIT -eq 0 ]; then
+    ok "Encerrado normalmente."
+else
+    echo -e "${YELLOW}⚠ Código de saída: $EXIT${RESET}"
+    if [ $DEBUG_MODE -eq 1 ]; then
+        info "Log salvo em: $DEBUG_LOG"
+        echo ""
+        echo -e "${DIM}Últimas linhas do log:${RESET}"
+        tail -20 "$DEBUG_LOG"
+    fi
+fi
